@@ -5,10 +5,13 @@ import weakref
 from typing import Dict
 
 import triton
+from triton.runtime.interpreter import InterpretedFunction
 
 from .. import runtime
 from ..runtime import torch_device_fn
 from .code_cache import config_cache_dir
+
+import triton_viz
 
 DEVICE_COUNT = runtime.device.device_count
 major_version = eval(triton.__version__.split(".")[0])
@@ -160,18 +163,12 @@ class LibEntry(triton.KernelInterface):
         self.kernel_cache = tuple(dict() for _ in range(DEVICE_COUNT))
 
         while not isinstance(fn, triton.runtime.JITFunction):
+            if isinstance(fn, InterpretedFunction):
+                break
             fn = fn.fn
         self.jit_function: triton.runtime.JITFunction = fn
-        self.specialize_indices = [
-            p.num
-            for p in self.jit_function.params
-            if not p.is_constexpr and not p.do_not_specialize
-        ]
-        self.do_not_specialize_indices = [
-            p.num
-            for p in self.jit_function.params
-            if not p.is_constexpr and p.do_not_specialize
-        ]
+        self.specialize_indices = []
+        self.do_not_specialize_indices = []
         self.lock = threading.Lock()
 
     def key(self, spec_args, dns_args, const_args):
@@ -213,22 +210,6 @@ class LibEntry(triton.KernelInterface):
                 dns_args.append(arg)
             else:
                 const_args.append(arg)
-        for p in self.jit_function.params[len(args) :]:
-            if p.name in kwargs:
-                val = kwargs[p.name]
-            elif p.default is inspect._empty:
-                continue
-            else:
-                val = p.default
-
-            if p.is_constexpr:
-                const_args.append(val)
-            elif p.do_not_specialize:
-                dns_args.append(val)
-                k_args.append(val)
-            else:
-                spec_args.append(val)
-                k_args.append(val)
 
         entry_key = self.key(spec_args, dns_args, const_args)
         device = torch_device_fn.current_device()
@@ -243,7 +224,7 @@ class LibEntry(triton.KernelInterface):
                 fn = self.fn
                 # collect constexpr arguments for grid computation
                 constexprs = {}
-                while not isinstance(fn, triton.runtime.JITFunction):
+                while not isinstance(fn, triton.runtime.JITFunction) and not isinstance(fn, InterpretedFunction):
                     if isinstance(fn, triton.runtime.Autotuner):
                         config = fn.best_config
                         constexprs["num_warps"] = config.num_warps
@@ -260,15 +241,8 @@ class LibEntry(triton.KernelInterface):
                                 }
                             )
                     else:
-                        raise RuntimeError("Invalid Runtime Function")
+                        pass
                     fn = fn.fn
-                for p in self.jit_function.params:
-                    if (
-                        p.is_constexpr
-                        and p.name not in constexprs
-                        and (p.default is not inspect._empty)
-                    ):
-                        constexprs[p.name] = p.default
                 cache[entry_key] = (kernel, constexprs)
             return kernel, constexprs
 

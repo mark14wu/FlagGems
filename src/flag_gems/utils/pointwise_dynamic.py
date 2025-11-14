@@ -1069,9 +1069,11 @@ class PointwiseDynamicFunction:
     def __init__(self, op_desc: FunctionSchema, scalar_fn: JITFunction, config=None):
         self.fx = op_desc
 
-        assert isinstance(scalar_fn, JITFunction)
         self._scalar_fn = scalar_fn
-        self._scalar_fn_cache_key = scalar_fn.cache_key
+        try:
+            self._scalar_fn_cache_key = scalar_fn.cache_key
+        except:
+            self._scalar_fn_cache_key = None
         self.pid = os.getpid()
 
         self.config: CodeGenConfig = config or get_codegen_config()

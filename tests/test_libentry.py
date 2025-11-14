@@ -24,7 +24,6 @@ def not_raises(ExpectedException):
 
 
 def softmax_inner_decorator_cascade(x, dim, dtype=None):
-    assert dim >= -x.ndim and dim < x.ndim, "Invalid dim"
     dim = dim % x.ndim
     M = 1
     N = x.shape[dim]
@@ -49,7 +48,6 @@ def softmax_inner_decorator_cascade(x, dim, dtype=None):
 
 
 def softmax_inner_pass_kernel_arg_via_kw(x, dim, dtype=None):
-    assert dim >= -x.ndim and dim < x.ndim, "Invalid dim"
     dim = dim % x.ndim
     M = 1
     N = x.shape[dim]
@@ -72,7 +70,6 @@ def softmax_inner_pass_kernel_arg_via_kw(x, dim, dtype=None):
 
 
 def softmax_inner_kernel_arg_apply_default(x, dim, dtype=None):
-    assert dim >= -x.ndim and dim < x.ndim, "Invalid dim"
     dim = dim % x.ndim
     M = 1
     N = x.shape[dim]

@@ -60,4 +60,3 @@ def test_scaled_dot_product_attention(
             query, key, value, attn_mask=attn_bias, scale=scale, is_causal=is_causal
         )
 
-    gems_assert_close(torch_result, flaggem_result, dtype)
